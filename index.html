@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f1419" />
+  <title>Semua Kamera Android</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --border: #2d3a4d;
+      --text: #e7ecf3;
+      --muted: #8b9cb3;
+      --accent: #3b82f6;
+      --danger: #ef4444;
+      --ok: #22c55e;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100dvh;
+    }
+
+    header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    header h1 {
+      margin: 0 0 0.35rem;
+      font-size: 1.15rem;
+      font-weight: 650;
+    }
+
+    header p {
+      margin: 0;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.85rem;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--accent);
+      color: #fff;
+      font: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 0.55rem 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    button.secondary {
+      background: transparent;
+      color: var(--text);
+    }
+
+    main {
+      padding: 1rem 1.25rem 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .status {
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+    }
+
+    .status.error {
+      border-color: var(--danger);
+      color: #fecaca;
+    }
+
+    .summary {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+      gap: 1rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card-head {
+      padding: 0.65rem 0.85rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.85rem;
+    }
+
+    .card-head strong {
+      display: block;
+      font-size: 0.95rem;
+      margin-bottom: 0.15rem;
+    }
+
+    .card-head code {
+      font-size: 0.7rem;
+      color: var(--muted);
+      word-break: break-all;
+    }
+
+    .preview-wrap {
+      position: relative;
+      aspect-ratio: 4 / 3;
+      background: #000;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .badge {
+      position: absolute;
+      top: 0.5rem;
+      left: 0.5rem;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 0.2rem 0.45rem;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.65);
+    }
+
+    .badge.live { color: var(--ok); }
+    .badge.err { color: var(--danger); }
+
+    .card-foot {
+      padding: 0.5rem 0.85rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      min-height: 2.25rem;
+    }
+
+    .empty {
+      text-align: center;
+      padding: 2.5rem 1rem;
+      color: var(--muted);
+    }
+
+    .hint {
+      margin-top: 1.5rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .hint ul {
+      margin: 0.5rem 0 0;
+      padding-left: 1.2rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Semua Kamera</h1>
+    <p>Webcam USB &amp; kamera bawaan HP (front / back / lainnya)</p>
+    <div class="toolbar">
+      <button type="button" id="btnStart">Izinkan &amp; tampilkan kamera</button>
+      <button type="button" id="btnRefresh" class="secondary" disabled>Scan ulang</button>
+      <button type="button" id="btnStop" class="secondary" disabled>Stop semua</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="status" class="status" hidden></div>
+    <p id="summary" class="summary"></p>
+    <div id="grid" class="grid"></div>
+    <div id="empty" class="empty">
+      Tekan <strong>Izinkan &amp; tampilkan kamera</strong> untuk meminta akses kamera.
+    </div>
+
+    <div class="hint">
+      <strong>Tips Android</strong>
+      <ul>
+        <li>Buka lewat <strong>HTTPS</strong> atau <code>localhost</code> — HTTP biasa sering ditolak.</li>
+        <li>Setelah izin, label kamera (depan/belakang/USB) baru muncul lengkap.</li>
+        <li>Beberapa HP tidak bisa membuka semua kamera sekaligus; yang gagal akan ditandai merah.</li>
+      </ul>
+    </div>
+  </main>
+
+  <script>
+    /** @type {Map<string, MediaStream>} */
+    const activeStreams = new Map();
+
+    const els = {
+      btnStart: document.getElementById("btnStart"),
+      btnRefresh: document.getElementById("btnRefresh"),
+      btnStop: document.getElementById("btnStop"),
+      status: document.getElementById("status"),
+      summary: document.getElementById("summary"),
+      grid: document.getElementById("grid"),
+      empty: document.getElementById("empty"),
+    };
+
+    function setStatus(message, isError = false) {
+      if (!message) {
+        els.status.hidden = true;
+        els.status.textContent = "";
+        els.status.classList.remove("error");
+        return;
+      }
+      els.status.hidden = false;
+      els.status.textContent = message;
+      els.status.classList.toggle("error", isError);
+    }
+
+    function stopAllStreams() {
+      for (const stream of activeStreams.values()) {
+        stream.getTracks().forEach((t) => t.stop());
+      }
+      activeStreams.clear();
+      els.grid.querySelectorAll("video").forEach((v) => {
+        v.srcObject = null;
+      });
+    }
+
+    function guessCameraKind(label, index, total) {
+      const l = (label || "").toLowerCase();
+      if (/usb|uvc|external|webcam/.test(l)) return "USB / Webcam";
+      if (/front|depan|selfie|user/.test(l)) return "Depan";
+      if (/back|belakang|rear|environment|wide|ultra|tele|macro/.test(l)) return "Belakang / lensa";
+      if (total === 2 && index === 0) return "Kamera 1";
+      if (total === 2 && index === 1) return "Kamera 2";
+      return `Kamera ${index + 1}`;
+    }
+
+    async function ensureMediaDevices() {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error(
+          "Browser tidak mendukung getUserMedia. Coba Chrome di Android dengan HTTPS."
+        );
+      }
+    }
+
+    /** Minta izin sekali agar enumerateDevices mengembalikan label & deviceId lengkap */
+    async function warmUpPermission() {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+        audio: false,
+      });
+      stream.getTracks().forEach((t) => t.stop());
+    }
+
+    async function listVideoInputs() {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      return devices.filter((d) => d.kind === "videoinput");
+    }
+
+    async function openCamera(device, index, total) {
+      const label = device.label || `Kamera tanpa label #${index + 1}`;
+      const kind = guessCameraKind(label, index, total);
+
+      const card = document.createElement("article");
+      card.className = "card";
+      card.innerHTML = `
+        <div class="card-head">
+          <strong></strong>
+          <code></code>
+        </div>
+        <div class="preview-wrap">
+          <span class="badge">…</span>
+          <video playsinline autoplay muted></video>
+        </div>
+        <div class="card-foot"></div>
+      `;
+
+      const titleEl = card.querySelector(".card-head strong");
+      const idEl = card.querySelector(".card-head code");
+      const badge = card.querySelector(".badge");
+      const video = card.querySelector("video");
+      const foot = card.querySelector(".card-foot");
+
+      titleEl.textContent = `${kind}: ${label}`;
+      idEl.textContent = device.deviceId || "(no deviceId)";
+
+      els.grid.appendChild(card);
+
+      const constraints = {
+        video: device.deviceId
+          ? { deviceId: { exact: device.deviceId } }
+          : { facingMode: index === 0 ? "environment" : "user" },
+        audio: false,
+      };
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        activeStreams.set(device.deviceId || String(index), stream);
+        video.srcObject = stream;
+
+        const track = stream.getVideoTracks()[0];
+        const settings = track?.getSettings?.() || {};
+        foot.textContent = [
+          settings.width && settings.height
+            ? `${settings.width}×${settings.height}`
+            : null,
+          settings.frameRate ? `${Math.round(settings.frameRate)} fps` : null,
+          settings.facingMode || null,
+        ]
+          .filter(Boolean)
+          .join(" · ") || "Stream aktif";
+
+        badge.textContent = "LIVE";
+        badge.classList.add("live");
+      } catch (err) {
+        badge.textContent = "GAGAL";
+        badge.classList.add("err");
+        foot.textContent = err.message || String(err);
+        console.warn("Gagal buka kamera:", device, err);
+      }
+    }
+
+    async function startAll() {
+      setStatus("");
+      els.btnStart.disabled = true;
+
+      try {
+        await ensureMediaDevices();
+        setStatus("Meminta izin kamera…");
+
+        try {
+          await warmUpPermission();
+        } catch {
+          await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+            .then((s) => s.getTracks().forEach((t) => t.stop()));
+        }
+
+        stopAllStreams();
+        els.grid.innerHTML = "";
+
+        const inputs = await listVideoInputs();
+
+        if (inputs.length === 0) {
+          els.empty.hidden = false;
+          els.empty.textContent = "Tidak ada perangkat video input terdeteksi.";
+          setStatus("Tidak ada kamera ditemukan.", true);
+          return;
+        }
+
+        els.empty.hidden = true;
+        els.summary.textContent = `${inputs.length} kamera terdeteksi — membuka preview…`;
+
+        const results = await Promise.allSettled(
+          inputs.map((device, i) => openCamera(device, i, inputs.length))
+        );
+
+        const failed = results.filter((r) => r.status === "rejected").length;
+        const live = activeStreams.size;
+        els.summary.textContent = `${inputs.length} kamera terdeteksi · ${live} preview aktif${
+          failed ? ` · ${failed} gagal dibuka` : ""
+        }`;
+
+        if (live === 0) {
+          setStatus(
+            "Semua kamera gagal dibuka. Coba tutup app lain yang pakai kamera, lalu scan ulang.",
+            true
+          );
+        } else if (live < inputs.length) {
+          setStatus(
+            "Sebagian kamera tidak bisa dibuka bersamaan (batasan hardware/driver). Yang berhasil tetap ditampilkan."
+          );
+        }
+
+        els.btnRefresh.disabled = false;
+        els.btnStop.disabled = false;
+      } catch (err) {
+        els.empty.hidden = false;
+        setStatus(err.message || String(err), true);
+        console.error(err);
+      } finally {
+        els.btnStart.disabled = false;
+      }
+    }
+
+    els.btnStart.addEventListener("click", () => startAll());
+    els.btnRefresh.addEventListener("click", () => startAll());
+    els.btnStop.addEventListener("click", () => {
+      stopAllStreams();
+      els.grid.innerHTML = "";
+      els.summary.textContent = "";
+      setStatus("Semua stream dihentikan.");
+      els.btnStop.disabled = true;
+      els.empty.hidden = false;
+      els.empty.innerHTML =
+        'Tekan <strong>Izinkan &amp; tampilkan kamera</strong> untuk memulai lagi.';
+    });
+
+    navigator.mediaDevices?.addEventListener?.("devicechange", () => {
+      if (activeStreams.size > 0) {
+        setStatus("Perangkat kamera berubah (cabut/pasang USB?). Tekan Scan ulang.");
+      }
+    });
+  </script>
+</body>
+</html>
