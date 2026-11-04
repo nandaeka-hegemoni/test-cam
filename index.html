@@ -286,7 +286,8 @@
       color: var(--muted);
     }
 
-    .http-fields input {
+    .http-fields input,
+    .http-fields select {
       font: inherit;
       font-size: 0.9rem;
       padding: 0.45rem 0.6rem;
@@ -367,6 +368,49 @@
       <p id="httpMeta" class="http-meta"></p>
     </section>
 
+    <section class="http-panel" aria-labelledby="rtsp-title">
+      <h2 id="rtsp-title">Kamera RTSP</h2>
+      <p>
+        Browser tidak memutar <code>rtsp://</code> langsung. Server convert ke MJPEG via
+        <strong>FFmpeg</strong> (<code>node server.mjs</code> di PC/Mac). User/password bisa di
+        field atau sudah di URL (<code>rtsp://user:pass@host:554/...</code>).
+      </p>
+      <div class="http-fields">
+        <label>
+          URL RTSP
+          <input
+            type="text"
+            id="rtspUrl"
+            value="rtsp://127.0.0.1:554/video"
+            spellcheck="false"
+            autocomplete="off"
+          />
+        </label>
+        <div class="row-2">
+          <label>
+            Username
+            <input type="text" id="rtspUser" value="admin" autocomplete="username" />
+          </label>
+          <label>
+            Password
+            <input type="password" id="rtspPass" value="admin" autocomplete="current-password" />
+          </label>
+        </div>
+        <label>
+          Transport
+          <select id="rtspTransport">
+            <option value="tcp" selected>TCP (disarankan)</option>
+            <option value="udp">UDP</option>
+          </select>
+        </label>
+      </div>
+      <div class="http-toolbar">
+        <button type="button" id="btnRtspDetect">Deteksi RTSP</button>
+        <button type="button" id="btnRtspPreview" class="secondary">Tampilkan preview</button>
+      </div>
+      <p id="rtspMeta" class="http-meta"></p>
+    </section>
+
     <div id="status" class="status" hidden></div>
     <p id="summary" class="summary"></p>
     <div id="singleSwitch" class="single-switch">
@@ -410,6 +454,13 @@
       btnHttpDetect: document.getElementById("btnHttpDetect"),
       btnHttpPreview: document.getElementById("btnHttpPreview"),
       httpMeta: document.getElementById("httpMeta"),
+      rtspUrl: document.getElementById("rtspUrl"),
+      rtspUser: document.getElementById("rtspUser"),
+      rtspPass: document.getElementById("rtspPass"),
+      rtspTransport: document.getElementById("rtspTransport"),
+      btnRtspDetect: document.getElementById("btnRtspDetect"),
+      btnRtspPreview: document.getElementById("btnRtspPreview"),
+      rtspMeta: document.getElementById("rtspMeta"),
       status: document.getElementById("status"),
       summary: document.getElementById("summary"),
       singleSwitch: document.getElementById("singleSwitch"),
@@ -513,13 +564,56 @@
       }
     }
 
-    function stopHttpPreview() {
+    function getRtspConfig() {
+      const url = els.rtspUrl.value.trim();
+      const user = els.rtspUser.value;
+      const pass = els.rtspPass.value;
+      const transport = els.rtspTransport.value === "udp" ? "udp" : "tcp";
+      if (!url) throw new Error("URL RTSP kosong.");
+      if (!/^rtsp:\/\//i.test(url)) {
+        throw new Error("URL RTSP harus diawali rtsp://");
+      }
+      return { url, user, pass, transport };
+    }
+
+    function rtspProbeQuery(config) {
+      const q = new URLSearchParams({
+        url: config.url,
+        user: config.user,
+        pass: config.pass,
+        transport: config.transport,
+      });
+      return `/api/rtsp-probe?${q.toString()}`;
+    }
+
+    function rtspStreamQuery(config, extra = {}) {
+      const q = new URLSearchParams({
+        url: config.url,
+        user: config.user,
+        pass: config.pass,
+        transport: config.transport,
+        ...extra,
+      });
+      return `/api/rtsp-stream?${q.toString()}`;
+    }
+
+    function stopRemotePreviews() {
       if (httpPreviewObjectUrl) {
         URL.revokeObjectURL(httpPreviewObjectUrl);
         httpPreviewObjectUrl = null;
       }
-      const card = document.getElementById("http-stream-card");
-      if (card) card.remove();
+      document.getElementById("http-stream-card")?.remove();
+      const rtspCard = document.getElementById("rtsp-stream-card");
+      if (rtspCard) {
+        rtspCard.querySelectorAll("img").forEach((img) => {
+          img.removeAttribute("src");
+        });
+        rtspCard.remove();
+      }
+    }
+
+    function stopHttpPreview() {
+      stopRemotePreviews();
     }
 
     function ensureHttpCard() {
@@ -599,6 +693,108 @@
       wrap.appendChild(img);
       foot.textContent =
         "Tanpa proxy: browser sering blokir user:pass di URL. Pakai server.mjs.";
+    }
+
+    function ensureRtspCard() {
+      let card = document.getElementById("rtsp-stream-card");
+      if (card) return card;
+
+      card = document.createElement("article");
+      card.id = "rtsp-stream-card";
+      card.className = "card";
+      card.innerHTML = `
+        <div class="card-head">
+          <strong>RTSP (via FFmpeg)</strong>
+          <code id="rtsp-card-url"></code>
+        </div>
+        <div class="preview-wrap">
+          <span class="badge live">RTSP</span>
+        </div>
+        <div class="card-foot" id="rtsp-card-foot"></div>
+      `;
+      els.grid.prepend(card);
+      els.empty.hidden = true;
+      return card;
+    }
+
+    async function detectRtspStream(config) {
+      const res = await fetch(rtspProbeQuery(config));
+      const data = await res.json();
+      if (!res.ok && !data.error) {
+        throw new Error(`Probe gagal (HTTP ${res.status})`);
+      }
+      return {
+        reachable: data.ok === true,
+        method: data.via || "ffmpeg/ffprobe",
+        videoCodec: data.videoCodec,
+        width: data.width,
+        height: data.height,
+        streamCount: data.streamCount,
+        transport: data.transport || config.transport,
+        detail: data.error || "",
+        url: data.url,
+      };
+    }
+
+    async function showRtspPreview(config) {
+      const card = ensureRtspCard();
+      card.querySelector("#rtsp-card-url").textContent = config.url;
+      const wrap = card.querySelector(".preview-wrap");
+      const foot = card.querySelector("#rtsp-card-foot");
+      wrap.querySelectorAll("img").forEach((n) => n.remove());
+
+      const img = document.createElement("img");
+      img.alt = "RTSP camera stream";
+      img.src = rtspStreamQuery(config, { t: String(Date.now()) });
+      img.onerror = () => {
+        foot.textContent =
+          "Preview RTSP gagal. Pastikan FFmpeg terpasang, URL/path benar, dan server.mjs jalan.";
+      };
+      wrap.appendChild(img);
+      foot.textContent = `MJPEG proxy · transport ${config.transport} · tutup tab/stream = FFmpeg stop`;
+    }
+
+    async function runRtspDetect(showPreview) {
+      const config = getRtspConfig();
+      els.btnRtspDetect.disabled = true;
+      els.btnRtspPreview.disabled = true;
+      els.rtspMeta.textContent = "Mendeteksi RTSP (ffprobe)…";
+
+      try {
+        const info = await detectRtspStream(config);
+        const lines = [
+          info.reachable ? "RTSP OK" : "RTSP gagal",
+          info.method,
+          info.transport ? `transport ${info.transport}` : null,
+          info.videoCodec ? `video: ${info.videoCodec}` : null,
+          info.width && info.height ? `${info.width}×${info.height}` : null,
+          info.streamCount != null ? `${info.streamCount} track` : null,
+          info.detail && !info.reachable ? info.detail : null,
+        ].filter(Boolean);
+        els.rtspMeta.textContent = lines.join(" · ");
+
+        if (showPreview) {
+          if (info.reachable) {
+            await showRtspPreview(config);
+          } else {
+            setStatus(
+              info.detail ||
+                "RTSP tidak terdeteksi. Cek URL, port (554), path, user/password, atau coba transport UDP.",
+              true
+            );
+          }
+        }
+      } catch (err) {
+        els.rtspMeta.textContent = err.message || String(err);
+        setStatus(
+          (err.message || String(err)) +
+            " — buka halaman lewat node server.mjs (bukan file://).",
+          true
+        );
+      } finally {
+        els.btnRtspDetect.disabled = false;
+        els.btnRtspPreview.disabled = false;
+      }
     }
 
     async function runHttpDetect(showPreview) {
@@ -1057,6 +1253,8 @@
     els.btnRefresh.addEventListener("click", () => startAll());
     els.btnHttpDetect.addEventListener("click", () => runHttpDetect(false));
     els.btnHttpPreview.addEventListener("click", () => runHttpDetect(true));
+    els.btnRtspDetect.addEventListener("click", () => runRtspDetect(false));
+    els.btnRtspPreview.addEventListener("click", () => runRtspDetect(true));
     els.btnStop.addEventListener("click", () => {
       stopAllStreams();
       teardownSingleMode();
