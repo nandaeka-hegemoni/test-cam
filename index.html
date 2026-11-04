@@ -15,6 +15,7 @@
       --accent: #3b82f6;
       --danger: #ef4444;
       --ok: #22c55e;
+      --warn: #f59e0b;
     }
 
     * {
@@ -49,6 +50,30 @@
       margin: 0;
       font-size: 0.85rem;
       color: var(--muted);
+    }
+
+    .mode-bar {
+      margin-top: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .mode-bar label {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .mode-bar select {
+      width: 100%;
+      max-width: 28rem;
+      font: inherit;
+      font-size: 0.9rem;
+      padding: 0.5rem 0.65rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
     }
 
     .toolbar {
@@ -107,10 +132,40 @@
       margin-bottom: 1rem;
     }
 
+    .single-switch {
+      display: none;
+      margin-bottom: 1rem;
+      padding: 0.75rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    .single-switch.visible {
+      display: block;
+    }
+
+    .single-switch select {
+      width: 100%;
+      font: inherit;
+      font-size: 0.9rem;
+      padding: 0.5rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      margin-top: 0.35rem;
+    }
+
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
       gap: 1rem;
+    }
+
+    .grid.single-active {
+      grid-template-columns: 1fr;
+      max-width: 640px;
     }
 
     .card {
@@ -120,6 +175,10 @@
       overflow: hidden;
       display: flex;
       flex-direction: column;
+    }
+
+    .card.hidden-preview {
+      display: none;
     }
 
     .card-head {
@@ -146,7 +205,8 @@
       background: #000;
     }
 
-    video {
+    video,
+    .preview-wrap img {
       width: 100%;
       height: 100%;
       object-fit: cover;
@@ -167,6 +227,7 @@
     }
 
     .badge.live { color: var(--ok); }
+    .badge.snap { color: var(--warn); }
     .badge.err { color: var(--danger); }
 
     .card-foot {
@@ -192,12 +253,83 @@
       margin: 0.5rem 0 0;
       padding-left: 1.2rem;
     }
+
+    .http-panel {
+      margin-bottom: 1.25rem;
+      padding: 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    .http-panel h2 {
+      margin: 0 0 0.5rem;
+      font-size: 1rem;
+    }
+
+    .http-panel > p {
+      margin: 0 0 0.75rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .http-fields {
+      display: grid;
+      gap: 0.5rem;
+    }
+
+    .http-fields label {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .http-fields input {
+      font: inherit;
+      font-size: 0.9rem;
+      padding: 0.45rem 0.6rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .http-fields .row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+
+    .http-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+
+    .http-meta {
+      margin-top: 0.65rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      word-break: break-all;
+    }
   </style>
 </head>
 <body>
   <header>
     <h1>Semua Kamera</h1>
     <p>Webcam USB &amp; kamera bawaan HP (front / back / lainnya)</p>
+    <div class="mode-bar">
+      <label for="mode">Mode (ngakalin batas HP)</label>
+      <select id="mode">
+        <option value="smart" selected>Pintar — live paralel + snapshot untuk yang gagal</option>
+        <option value="snapshot">Snapshot berurutan — semua kamera, satu per satu (paling aman)</option>
+        <option value="single">Satu live — ganti kamera di dropdown (preview mulus)</option>
+        <option value="parallel">Paralel — semua live sekaligus (sering gagal di HP)</option>
+      </select>
+    </div>
     <div class="toolbar">
       <button type="button" id="btnStart">Izinkan &amp; tampilkan kamera</button>
       <button type="button" id="btnRefresh" class="secondary" disabled>Scan ulang</button>
@@ -206,19 +338,53 @@
   </header>
 
   <main>
+    <section class="http-panel" aria-labelledby="http-title">
+      <h2 id="http-title">Kamera HTTP (MJPEG / IP cam)</h2>
+      <p>
+        Contoh stream dengan Basic Auth. Di HP, <code>127.0.0.1</code> = perangkat itu sendiri.
+        Jalankan halaman lewat <code>node server.mjs</code> agar deteksi &amp; preview tidak kena CORS.
+      </p>
+      <div class="http-fields">
+        <label>
+          URL video
+          <input type="url" id="httpUrl" value="http://127.0.0.1:8081/video" autocomplete="off" />
+        </label>
+        <div class="row-2">
+          <label>
+            Username
+            <input type="text" id="httpUser" value="admin" autocomplete="username" />
+          </label>
+          <label>
+            Password
+            <input type="password" id="httpPass" value="admin" autocomplete="current-password" />
+          </label>
+        </div>
+      </div>
+      <div class="http-toolbar">
+        <button type="button" id="btnHttpDetect">Deteksi stream</button>
+        <button type="button" id="btnHttpPreview" class="secondary">Tampilkan preview</button>
+      </div>
+      <p id="httpMeta" class="http-meta"></p>
+    </section>
+
     <div id="status" class="status" hidden></div>
     <p id="summary" class="summary"></p>
+    <div id="singleSwitch" class="single-switch">
+      <label for="cameraPick">Pilih kamera (hanya satu stream aktif)</label>
+      <select id="cameraPick"></select>
+    </div>
     <div id="grid" class="grid"></div>
     <div id="empty" class="empty">
       Tekan <strong>Izinkan &amp; tampilkan kamera</strong> untuk meminta akses kamera.
     </div>
 
     <div class="hint">
-      <strong>Tips Android</strong>
+      <strong>Kenapa tidak bisa semua live?</strong>
       <ul>
-        <li>Buka lewat <strong>HTTPS</strong> atau <code>localhost</code> — HTTP biasa sering ditolak.</li>
-        <li>Setelah izin, label kamera (depan/belakang/USB) baru muncul lengkap.</li>
-        <li>Beberapa HP tidak bisa membuka semua kamera sekaligus; yang gagal akan ditandai merah.</li>
+        <li>Di Android, HAL/driver sering hanya mengizinkan <strong>satu pipeline kamera aktif</strong> (kadang dua kalau front+back khusus).</li>
+        <li>Browser cuma bisa lewat <code>getUserMedia</code> — tidak bisa “force” buka semua sensor seperti app native Camera2.</li>
+        <li><strong>Snapshot berurutan</strong>: buka kamera A → ambil 1 frame → tutup → buka B → … sehingga <em>semua</em> tetap kefoto tanpa bentrok.</li>
+        <li><strong>Satu live</strong>: untuk monitoring real-time, pindah kamera tanpa membuka banyak stream.</li>
       </ul>
     </div>
   </main>
@@ -226,16 +392,248 @@
   <script>
     /** @type {Map<string, MediaStream>} */
     const activeStreams = new Map();
+    /** @type {MediaDeviceInfo[]} */
+    let cachedInputs = [];
+    let singleSwitchHandler = null;
+
+    /** @type {string | null} */
+    let httpPreviewObjectUrl = null;
 
     const els = {
+      mode: document.getElementById("mode"),
       btnStart: document.getElementById("btnStart"),
       btnRefresh: document.getElementById("btnRefresh"),
       btnStop: document.getElementById("btnStop"),
+      httpUrl: document.getElementById("httpUrl"),
+      httpUser: document.getElementById("httpUser"),
+      httpPass: document.getElementById("httpPass"),
+      btnHttpDetect: document.getElementById("btnHttpDetect"),
+      btnHttpPreview: document.getElementById("btnHttpPreview"),
+      httpMeta: document.getElementById("httpMeta"),
       status: document.getElementById("status"),
       summary: document.getElementById("summary"),
+      singleSwitch: document.getElementById("singleSwitch"),
+      cameraPick: document.getElementById("cameraPick"),
       grid: document.getElementById("grid"),
       empty: document.getElementById("empty"),
     };
+
+    function getHttpConfig() {
+      const url = els.httpUrl.value.trim();
+      const user = els.httpUser.value;
+      const pass = els.httpPass.value;
+      if (!url) throw new Error("URL video kosong.");
+      return { url, user, pass };
+    }
+
+    function proxyQuery({ url, user, pass }, extra = {}) {
+      const q = new URLSearchParams({ url, user, pass, ...extra });
+      return `/api/proxy?${q.toString()}`;
+    }
+
+    function probeQuery({ url, user, pass }) {
+      const q = new URLSearchParams({ url, user, pass });
+      return `/api/probe?${q.toString()}`;
+    }
+
+    function authUrl({ url, user, pass }) {
+      const u = new URL(url);
+      u.username = user;
+      u.password = pass;
+      return u.href;
+    }
+
+    function classifyStream(contentType) {
+      const ct = (contentType || "").toLowerCase();
+      if (ct.includes("multipart/x-mixed-replace")) return "mjpeg";
+      if (ct.startsWith("image/")) return "image";
+      if (ct.startsWith("video/")) return "video";
+      return "unknown";
+    }
+
+    async function detectHttpStream(config) {
+      const result = {
+        reachable: false,
+        method: null,
+        status: null,
+        contentType: null,
+        streamKind: null,
+        detail: "",
+      };
+
+      try {
+        const probeRes = await fetch(probeQuery(config));
+        if (probeRes.ok) {
+          const data = await probeRes.json();
+          if (data.error && !data.status) throw new Error(data.error);
+          result.method = "proxy (/api/probe)";
+          result.status = data.status;
+          result.contentType = data.contentType;
+          result.reachable = data.ok === true;
+          result.detail = data.statusText || "";
+          result.streamKind = classifyStream(data.contentType);
+          return result;
+        }
+      } catch {
+        /* proxy server tidak jalan — coba langsung */
+      }
+
+      try {
+        const headers = {
+          Authorization: "Basic " + btoa(`${config.user}:${config.pass}`),
+        };
+        let res = await fetch(config.url, {
+          method: "HEAD",
+          headers,
+          signal: AbortSignal.timeout(8000),
+        });
+        if (res.status === 405 || res.status === 501) {
+          res = await fetch(config.url, {
+            method: "GET",
+            headers: { ...headers, Range: "bytes=0-0" },
+            signal: AbortSignal.timeout(8000),
+          });
+        }
+        result.method = "fetch langsung (butuh CORS di server kamera)";
+        result.status = res.status;
+        result.contentType = res.headers.get("content-type");
+        result.reachable = res.ok;
+        result.detail = res.statusText;
+        result.streamKind = classifyStream(result.contentType);
+        try {
+          res.body?.cancel?.();
+        } catch {
+          /* ignore */
+        }
+        return result;
+      } catch (err) {
+        result.method = "fetch langsung";
+        result.detail = err.message || String(err);
+        return result;
+      }
+    }
+
+    function stopHttpPreview() {
+      if (httpPreviewObjectUrl) {
+        URL.revokeObjectURL(httpPreviewObjectUrl);
+        httpPreviewObjectUrl = null;
+      }
+      const card = document.getElementById("http-stream-card");
+      if (card) card.remove();
+    }
+
+    function ensureHttpCard() {
+      let card = document.getElementById("http-stream-card");
+      if (card) return card;
+
+      card = document.createElement("article");
+      card.id = "http-stream-card";
+      card.className = "card";
+      card.innerHTML = `
+        <div class="card-head">
+          <strong>HTTP stream</strong>
+          <code id="http-card-url"></code>
+        </div>
+        <div class="preview-wrap">
+          <span class="badge live">HTTP</span>
+          <video playsinline autoplay muted hidden></video>
+        </div>
+        <div class="card-foot" id="http-card-foot"></div>
+      `;
+      els.grid.prepend(card);
+      els.empty.hidden = true;
+      return card;
+    }
+
+    async function showHttpPreview(config, detectResult) {
+      stopHttpPreview();
+      const card = ensureHttpCard();
+      card.querySelector("#http-card-url").textContent = config.url;
+      const foot = card.querySelector("#http-card-foot");
+      const video = card.querySelector("video");
+      const wrap = card.querySelector(".preview-wrap");
+      wrap.querySelectorAll("img").forEach((n) => n.remove());
+
+      const kind =
+        detectResult?.streamKind ||
+        classifyStream(detectResult?.contentType);
+
+      let probeOk = false;
+      try {
+        const probeRes = await fetch(probeQuery(config));
+        probeOk = probeRes.ok;
+      } catch {
+        probeOk = false;
+      }
+
+      if (probeOk) {
+        const src = proxyQuery(config, { t: String(Date.now()) });
+        if (kind === "video") {
+          video.hidden = false;
+          video.src = src;
+          foot.textContent = "Preview via proxy same-origin";
+        } else {
+          const img = document.createElement("img");
+          img.alt = "HTTP camera stream";
+          img.src = src;
+          img.onerror = () => {
+            foot.textContent =
+              "Gagal load stream via proxy. Cek URL, user/password, atau service di :8081.";
+          };
+          video.hidden = true;
+          wrap.appendChild(img);
+          foot.textContent = "MJPEG/image via proxy (Basic Auth di server)";
+        }
+        return;
+      }
+
+      const img = document.createElement("img");
+      img.alt = "HTTP camera stream";
+      img.referrerPolicy = "no-referrer";
+      img.src = authUrl(config);
+      img.onerror = () => {
+        foot.textContent =
+          "Preview gagal. Jalankan node server.mjs di folder ini, lalu buka http://127.0.0.1:8765";
+      };
+      video.hidden = true;
+      wrap.appendChild(img);
+      foot.textContent =
+        "Tanpa proxy: browser sering blokir user:pass di URL. Pakai server.mjs.";
+    }
+
+    async function runHttpDetect(showPreview) {
+      const config = getHttpConfig();
+      els.btnHttpDetect.disabled = true;
+      els.btnHttpPreview.disabled = true;
+      els.httpMeta.textContent = "Mendeteksi…";
+
+      try {
+        const info = await detectHttpStream(config);
+        const lines = [
+          info.reachable ? "Terdeteksi" : "Tidak terjangkau / gagal auth",
+          info.method,
+          info.status != null ? `HTTP ${info.status} ${info.detail}`.trim() : info.detail,
+          info.contentType ? `Content-Type: ${info.contentType}` : null,
+          info.streamKind ? `Jenis: ${info.streamKind}` : null,
+        ].filter(Boolean);
+        els.httpMeta.textContent = lines.join(" · ");
+
+        if (showPreview && info.reachable) {
+          await showHttpPreview(config, info);
+        } else if (showPreview) {
+          setStatus(
+            "Stream tidak terdeteksi. Pastikan service jalan di :8081 dan user/password benar.",
+            true
+          );
+        }
+      } catch (err) {
+        els.httpMeta.textContent = err.message || String(err);
+        setStatus(err.message || String(err), true);
+      } finally {
+        els.btnHttpDetect.disabled = false;
+        els.btnHttpPreview.disabled = false;
+      }
+    }
 
     function setStatus(message, isError = false) {
       if (!message) {
@@ -256,7 +654,9 @@
       activeStreams.clear();
       els.grid.querySelectorAll("video").forEach((v) => {
         v.srcObject = null;
+        v.removeAttribute("src");
       });
+      stopHttpPreview();
     }
 
     function guessCameraKind(label, index, total) {
@@ -269,6 +669,65 @@
       return `Kamera ${index + 1}`;
     }
 
+    function videoConstraints(device, index) {
+      return {
+        video: device.deviceId
+          ? { deviceId: { exact: device.deviceId } }
+          : { facingMode: index === 0 ? "environment" : "user" },
+        audio: false,
+      };
+    }
+
+    function streamKey(device, index) {
+      return device.deviceId || String(index);
+    }
+
+    function createCard(device, index, total) {
+      const label = device.label || `Kamera tanpa label #${index + 1}`;
+      const kind = guessCameraKind(label, index, total);
+
+      const card = document.createElement("article");
+      card.className = "card";
+      card.dataset.deviceKey = streamKey(device, index);
+      card.innerHTML = `
+        <div class="card-head">
+          <strong></strong>
+          <code></code>
+        </div>
+        <div class="preview-wrap">
+          <span class="badge">…</span>
+          <video playsinline autoplay muted hidden></video>
+        </div>
+        <div class="card-foot"></div>
+      `;
+
+      card.querySelector(".card-head strong").textContent = `${kind}: ${label}`;
+      card.querySelector(".card-head code").textContent = device.deviceId || "(no deviceId)";
+
+      return {
+        card,
+        badge: card.querySelector(".badge"),
+        video: card.querySelector("video"),
+        previewWrap: card.querySelector(".preview-wrap"),
+        foot: card.querySelector(".card-foot"),
+      };
+    }
+
+    function formatTrackInfo(track) {
+      const settings = track?.getSettings?.() || {};
+      return (
+        [
+          settings.width && settings.height
+            ? `${settings.width}×${settings.height}`
+            : null,
+          settings.frameRate ? `${Math.round(settings.frameRate)} fps` : null,
+          settings.facingMode || null,
+        ]
+          .filter(Boolean)
+          .join(" · ") || "Stream aktif"
+      );
+    }
+
     async function ensureMediaDevices() {
       if (!navigator.mediaDevices?.getUserMedia) {
         throw new Error(
@@ -277,7 +736,6 @@
       }
     }
 
-    /** Minta izin sekali agar enumerateDevices mengembalikan label & deviceId lengkap */
     async function warmUpPermission() {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment" },
@@ -291,72 +749,242 @@
       return devices.filter((d) => d.kind === "videoinput");
     }
 
-    async function openCamera(device, index, total) {
-      const label = device.label || `Kamera tanpa label #${index + 1}`;
-      const kind = guessCameraKind(label, index, total);
+    function waitForVideoFrame(video) {
+      return new Promise((resolve) => {
+        if (video.requestVideoFrameCallback) {
+          video.requestVideoFrameCallback(() => resolve());
+          return;
+        }
+        const onReady = () => {
+          if (video.videoWidth > 0) resolve();
+        };
+        video.addEventListener("loadeddata", onReady, { once: true });
+        setTimeout(resolve, 500);
+      });
+    }
 
-      const card = document.createElement("article");
-      card.className = "card";
-      card.innerHTML = `
-        <div class="card-head">
-          <strong></strong>
-          <code></code>
-        </div>
-        <div class="preview-wrap">
-          <span class="badge">…</span>
-          <video playsinline autoplay muted></video>
-        </div>
-        <div class="card-foot"></div>
-      `;
+    async function openLiveStream(device, index, ui) {
+      const key = streamKey(device, index);
+      const stream = await navigator.mediaDevices.getUserMedia(
+        videoConstraints(device, index)
+      );
+      activeStreams.set(key, stream);
 
-      const titleEl = card.querySelector(".card-head strong");
-      const idEl = card.querySelector(".card-head code");
-      const badge = card.querySelector(".badge");
-      const video = card.querySelector("video");
-      const foot = card.querySelector(".card-foot");
+      ui.video.hidden = false;
+      ui.video.srcObject = stream;
 
-      titleEl.textContent = `${kind}: ${label}`;
-      idEl.textContent = device.deviceId || "(no deviceId)";
+      const track = stream.getVideoTracks()[0];
+      ui.foot.textContent = formatTrackInfo(track);
+      ui.badge.textContent = "LIVE";
+      ui.badge.className = "badge live";
+      return true;
+    }
 
-      els.grid.appendChild(card);
+    async function captureSnapshot(device, index, ui) {
+      const stream = await navigator.mediaDevices.getUserMedia(
+        videoConstraints(device, index)
+      );
 
-      const constraints = {
-        video: device.deviceId
-          ? { deviceId: { exact: device.deviceId } }
-          : { facingMode: index === 0 ? "environment" : "user" },
-        audio: false,
-      };
+      const video = document.createElement("video");
+      video.playsInline = true;
+      video.muted = true;
+      video.srcObject = stream;
 
       try {
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        activeStreams.set(device.deviceId || String(index), stream);
-        video.srcObject = stream;
+        await video.play();
+        await waitForVideoFrame(video);
 
-        const track = stream.getVideoTracks()[0];
-        const settings = track?.getSettings?.() || {};
-        foot.textContent = [
-          settings.width && settings.height
-            ? `${settings.width}×${settings.height}`
-            : null,
-          settings.frameRate ? `${Math.round(settings.frameRate)} fps` : null,
-          settings.facingMode || null,
-        ]
-          .filter(Boolean)
-          .join(" · ") || "Stream aktif";
+        const w = video.videoWidth || 640;
+        const h = video.videoHeight || 480;
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext("2d").drawImage(video, 0, 0, w, h);
 
-        badge.textContent = "LIVE";
-        badge.classList.add("live");
-      } catch (err) {
-        badge.textContent = "GAGAL";
-        badge.classList.add("err");
-        foot.textContent = err.message || String(err);
-        console.warn("Gagal buka kamera:", device, err);
+        const img = document.createElement("img");
+        img.alt = device.label || "Snapshot kamera";
+        img.src = canvas.toDataURL("image/jpeg", 0.88);
+
+        ui.video.hidden = true;
+        const oldImg = ui.previewWrap.querySelector("img");
+        if (oldImg) oldImg.remove();
+        ui.previewWrap.appendChild(img);
+
+        ui.foot.textContent = `Snapshot ${w}×${h} · stream sudah ditutup`;
+        ui.badge.textContent = "SNAPSHOT";
+        ui.badge.className = "badge snap";
+        return true;
+      } finally {
+        stream.getTracks().forEach((t) => t.stop());
       }
+    }
+
+    function markFailed(ui, err) {
+      ui.badge.textContent = "GAGAL";
+      ui.badge.className = "badge err";
+      ui.foot.textContent = err?.message || String(err);
+    }
+
+    async function runParallel(inputs) {
+      await Promise.all(
+        inputs.map(async (device, i) => {
+          const ui = createCard(device, i, inputs.length);
+          els.grid.appendChild(ui.card);
+          try {
+            await openLiveStream(device, i, ui);
+          } catch (err) {
+            markFailed(ui, err);
+            console.warn("Gagal buka kamera:", device, err);
+          }
+        })
+      );
+    }
+
+    async function runSnapshotSequential(inputs) {
+      for (let i = 0; i < inputs.length; i++) {
+        const device = inputs[i];
+        const ui = createCard(device, i, inputs.length);
+        els.grid.appendChild(ui.card);
+        setStatus(`Snapshot ${i + 1}/${inputs.length}: ${device.label || "kamera"}…`);
+        stopAllStreams();
+        try {
+          await captureSnapshot(device, i, ui);
+        } catch (err) {
+          markFailed(ui, err);
+        }
+        await new Promise((r) => setTimeout(r, 150));
+      }
+      setStatus("");
+    }
+
+    async function runSmart(inputs) {
+      const cards = inputs.map((device, i) => {
+        const ui = createCard(device, i, inputs.length);
+        els.grid.appendChild(ui.card);
+        return { device, index: i, ui };
+      });
+
+      await Promise.all(
+        cards.map(async ({ device, index, ui }) => {
+          try {
+            await openLiveStream(device, index, ui);
+          } catch (err) {
+            markFailed(ui, err);
+          }
+        })
+      );
+
+      const succeeded = cards.filter(({ ui }) => ui.badge.classList.contains("live"));
+      const failed = cards.filter(({ ui }) => ui.badge.classList.contains("err"));
+      if (failed.length === 0) return;
+
+      setStatus(
+        `${failed.length} kamera gagal live — ambil snapshot (stream lain sementara dimatikan)…`
+      );
+
+      for (const { device, index, ui } of failed) {
+        stopAllStreams();
+        try {
+          await captureSnapshot(device, index, ui);
+        } catch (err) {
+          markFailed(ui, err);
+        }
+        await new Promise((r) => setTimeout(r, 150));
+      }
+
+      let restored = 0;
+      for (const { device, index, ui } of succeeded) {
+        if (ui.badge.classList.contains("snap")) continue;
+        try {
+          await openLiveStream(device, index, ui);
+          restored++;
+        } catch (err) {
+          try {
+            stopAllStreams();
+            await captureSnapshot(device, index, ui);
+          } catch (err2) {
+            markFailed(ui, err2);
+          }
+        }
+      }
+
+      if (restored > 0) {
+        setStatus(
+          `Mode pintar: ${restored} kamera live lagi; yang tadinya gagal pakai snapshot.`
+        );
+      } else if (failed.length === inputs.length) {
+        setStatus("Semua pakai snapshot — HP ini tidak support multi-live.");
+      } else {
+        setStatus("Preview live + snapshot; sebagian live tidak bisa dipulihkan setelah snapshot.");
+      }
+    }
+
+    function teardownSingleMode() {
+      els.singleSwitch.classList.remove("visible");
+      els.grid.classList.remove("single-active");
+      if (singleSwitchHandler) {
+        els.cameraPick.removeEventListener("change", singleSwitchHandler);
+        singleSwitchHandler = null;
+      }
+      els.cameraPick.innerHTML = "";
+    }
+
+    async function switchSingleCamera(deviceIndex) {
+      stopAllStreams();
+      els.grid.querySelectorAll(".card").forEach((card, i) => {
+        card.classList.toggle("hidden-preview", i !== deviceIndex);
+      });
+
+      const device = cachedInputs[deviceIndex];
+      const card = els.grid.children[deviceIndex];
+      if (!device || !card) return;
+
+      const ui = {
+        badge: card.querySelector(".badge"),
+        video: card.querySelector("video"),
+        previewWrap: card.querySelector(".preview-wrap"),
+        foot: card.querySelector(".card-foot"),
+      };
+
+      const oldImg = ui.previewWrap.querySelector("img");
+      if (oldImg) oldImg.remove();
+      ui.video.hidden = false;
+
+      try {
+        await openLiveStream(device, deviceIndex, ui);
+      } catch (err) {
+        markFailed(ui, err);
+      }
+    }
+
+    async function runSingle(inputs) {
+      teardownSingleMode();
+      els.singleSwitch.classList.add("visible");
+      els.grid.classList.add("single-active");
+
+      inputs.forEach((device, i) => {
+        const ui = createCard(device, i, inputs.length);
+        if (i !== 0) ui.card.classList.add("hidden-preview");
+        els.grid.appendChild(ui.card);
+
+        const opt = document.createElement("option");
+        opt.value = String(i);
+        opt.textContent = ui.card.querySelector(".card-head strong").textContent;
+        els.cameraPick.appendChild(opt);
+      });
+
+      singleSwitchHandler = () => {
+        switchSingleCamera(Number(els.cameraPick.value));
+      };
+      els.cameraPick.addEventListener("change", singleSwitchHandler);
+
+      await switchSingleCamera(0);
     }
 
     async function startAll() {
       setStatus("");
       els.btnStart.disabled = true;
+      teardownSingleMode();
 
       try {
         await ensureMediaDevices();
@@ -365,7 +993,8 @@
         try {
           await warmUpPermission();
         } catch {
-          await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+          await navigator.mediaDevices
+            .getUserMedia({ video: true, audio: false })
             .then((s) => s.getTracks().forEach((t) => t.stop()));
         }
 
@@ -373,6 +1002,7 @@
         els.grid.innerHTML = "";
 
         const inputs = await listVideoInputs();
+        cachedInputs = inputs;
 
         if (inputs.length === 0) {
           els.empty.hidden = false;
@@ -382,26 +1012,33 @@
         }
 
         els.empty.hidden = true;
-        els.summary.textContent = `${inputs.length} kamera terdeteksi — membuka preview…`;
+        const mode = els.mode.value;
+        els.summary.textContent = `${inputs.length} kamera · mode: ${els.mode.selectedOptions[0].textContent}`;
 
-        const results = await Promise.allSettled(
-          inputs.map((device, i) => openCamera(device, i, inputs.length))
-        );
+        if (mode === "parallel") {
+          await runParallel(inputs);
+        } else if (mode === "snapshot") {
+          await runSnapshotSequential(inputs);
+        } else if (mode === "single") {
+          await runSingle(inputs);
+        } else {
+          await runSmart(inputs);
+        }
 
-        const failed = results.filter((r) => r.status === "rejected").length;
         const live = activeStreams.size;
-        els.summary.textContent = `${inputs.length} kamera terdeteksi · ${live} preview aktif${
-          failed ? ` · ${failed} gagal dibuka` : ""
-        }`;
+        const snaps = els.grid.querySelectorAll(".badge.snap").length;
+        const fails = els.grid.querySelectorAll(".badge.err").length;
 
-        if (live === 0) {
+        els.summary.textContent += ` · ${live} live · ${snaps} snapshot · ${fails} gagal`;
+
+        if (fails === inputs.length) {
           setStatus(
-            "Semua kamera gagal dibuka. Coba tutup app lain yang pakai kamera, lalu scan ulang.",
+            "Semua kamera gagal. Tutup app lain yang pakai kamera, coba mode Snapshot berurutan.",
             true
           );
-        } else if (live < inputs.length) {
+        } else if (mode === "parallel" && live < inputs.length) {
           setStatus(
-            "Sebagian kamera tidak bisa dibuka bersamaan (batasan hardware/driver). Yang berhasil tetap ditampilkan."
+            "Paralel gagal sebagian — ganti ke mode Pintar atau Snapshot berurutan."
           );
         }
 
@@ -418,19 +1055,24 @@
 
     els.btnStart.addEventListener("click", () => startAll());
     els.btnRefresh.addEventListener("click", () => startAll());
+    els.btnHttpDetect.addEventListener("click", () => runHttpDetect(false));
+    els.btnHttpPreview.addEventListener("click", () => runHttpDetect(true));
     els.btnStop.addEventListener("click", () => {
       stopAllStreams();
+      teardownSingleMode();
       els.grid.innerHTML = "";
+      cachedInputs = [];
       els.summary.textContent = "";
       setStatus("Semua stream dihentikan.");
       els.btnStop.disabled = true;
+      els.btnRefresh.disabled = true;
       els.empty.hidden = false;
       els.empty.innerHTML =
         'Tekan <strong>Izinkan &amp; tampilkan kamera</strong> untuk memulai lagi.';
     });
 
     navigator.mediaDevices?.addEventListener?.("devicechange", () => {
-      if (activeStreams.size > 0) {
+      if (activeStreams.size > 0 || els.grid.children.length > 0) {
         setStatus("Perangkat kamera berubah (cabut/pasang USB?). Tekan Scan ulang.");
       }
     });
